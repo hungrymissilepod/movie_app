@@ -2,24 +2,34 @@ import 'package:flutter/material.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:movieapp/utilities/size_config.dart';
+import 'package:movieapp/utilities/ui_constants.dart';
 
 import 'dart:convert';
 // ! REELDEAL - app name
 
 
-// TODO: check code and clean up
-// TODO: see where we are and work on improvements
-// TODO: can we maximise performance on loading data? Can we load pages at a time rather than everything at once?
-// TODO: work on UI
+// TODO: set grid spacing
+// TODO: use sliver app bar. App bar should show app name and tag line
+// TODO: show bottom nav bar with two buttons. Movies with film icon, Tickets with ticket icon. Maybe also Profile with profile icon
+// TODO: create splash screen. Show splash screen on app launch
+// TODO: set app theme colors in ThemeData
+// TODO: use correct fonts
 
 class Movie {
-  Movie(this.title, this.review);
+  Movie({ this.title, this.voteAverage, this.imageUrl });
 
   final String title;
-  final String review;
+  final double voteAverage;
+  final String imageUrl;
 
   /// Convert JSON to Movie object
-  Movie.fromJson(Map<String, dynamic> json) : title = json['title'], review = json['review'];
+  factory Movie.fromJson(Map data) {
+    return Movie(
+      title: data['title'] as String ?? '',
+      voteAverage: data["vote_average"] is int ? (data['vote_average'] as int).toDouble() : data['vote_average'],
+      imageUrl: data['poster_path'] as String ?? '',
+    );
+  }
 }
 
 void main() {
@@ -27,54 +37,79 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Reel Deal',
       theme: ThemeData(
-        canvasColor: Colors.black,
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        canvasColor: Color(kBackgroundColour),
+        iconTheme: IconThemeData(
+          color: Color(kAccentColour), /// accent
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Color(kNavigationBarColour),
+          selectedIconTheme: IconThemeData(color: Color(kAccentColour)),
+          selectedItemColor: Color(kAccentColour),
+          unselectedIconTheme: IconThemeData(color: Colors.grey),
+          unselectedItemColor: Colors.grey,
+        ),
+        appBarTheme: AppBarTheme(
+          color: Color(kAccentColour),
+        ),
+        primarySwatch: Colors.red,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-  final String title;
+  MyHomePage({Key key }) : super(key: key);
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  ScrollController _controller = ScrollController();
+  int _page = 0;
 
   Future _future;
+  List<Movie> _movies = [];
+  bool _isLoading = false;
 
   Future getMovies() async {
-    var url = Uri.parse('https://api.themoviedb.org/3/movie/popular?api_key=4418a4dd7da6409b55bd0876c7540a10&language=en-US&page=1');
+    setState(() { _isLoading = true; });
+    _page++;
+    print('getMovies - page: $_page');
+    var url = Uri.parse('https://api.themoviedb.org/3/movie/popular?api_key=4418a4dd7da6409b55bd0876c7540a10&language=en-US&page=$_page');
     var response = await http.get(url);
     // print(response.body);
+
     final body = json.decode(response.body);
-    print(body['results']);
-    return body['results'];
+    _movies.addAll((body['results'] as List).map((e) => Movie.fromJson(e as Map<String, dynamic>)).toList());
+    setState(() { _isLoading = false; });
+    return _movies;
   }
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onScroll);
     _future = getMovies();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  _onScroll() {
+    /// When user gets near the bottom of the list, load more movies
+    if(_controller.position.extentAfter < 500) {
+      if (!_isLoading) { getMovies(); }
+    }
   }
 
   @override
@@ -82,102 +117,123 @@ class _MyHomePageState extends State<MyHomePage> {
     SizeConfig().init(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text('Popular Movies'),
       ),
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-
             return GridView.builder(
               padding: EdgeInsets.all(10),
+              itemCount: _movies.length,
+              controller: _controller,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                childAspectRatio: 1/1.7,
+                childAspectRatio: 1/1.5,
                 // TODO: can change the amount of grids per row based on device. On tablet we can fit many more tiles in
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 18,
               ),
               itemBuilder: (context, index) {
-                return Container(
-                  // color: Colors.redAccent,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        height: SizeConfig.blockSizeVertical * 30,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                          image: DecorationImage(
-                            fit: BoxFit.fill,
-                            image: NetworkImage('https://image.tmdb.org/t/p/w500/${snapshot.data[index]['poster_path']}'),
-                          ),
-                        ),
-                      ),
-                      // Image.network('https://image.tmdb.org/t/p/w500/${snapshot.data[index]['poster_path']}'),
-
-                      Expanded(
-                        child: Container(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: SizeConfig.blockSizeHorizontal * 1, vertical: SizeConfig.blockSizeVertical * 0.4),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${snapshot.data[index]['title']}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      '${snapshot.data[index]['vote_average']}',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Icon(Icons.star_rounded, color: Colors.yellow, size: 16,),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                return MoviePoster(
+                  _movies[index].title,
+                  _movies[index].voteAverage,
+                  _movies[index].imageUrl,
                 );
               }
             );
           }
-          return CircularProgressIndicator(); 
+          return Center(child: CircularProgressIndicator()); 
         },
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: [
+          BottomNavigationBarItem(
+            label: 'Movies',
+            icon: Icon(Icons.theaters),
+          ),
+          BottomNavigationBarItem(
+            label: 'Profile',
+            icon: Icon(Icons.person_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 
+class MoviePoster extends StatelessWidget {
+  MoviePoster(this.title, this.vote, this.imageUrl);
+  final String title;
+  final double vote;
+  final String imageUrl;
 
-      // body: Center(
-      //   child: Column(
-      //     mainAxisAlignment: MainAxisAlignment.center,
-      //     children: <Widget>[
-      //       Text('You have pushed the button this many times:'),
-      //       Text('$_counter', style: Theme.of(context).textTheme.headline4),
-      //     ],
-      //   ),
-      // ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: _incrementCounter,
-      //   tooltip: 'Increment',
-      //   child: Icon(Icons.add),
-      // ),
+  @override
+  Widget build(BuildContext context) {
+    double stars = vote / 2; /// convert vote score to number of stars
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        Container(
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(30.0)),
+              child: Image.network('https://image.tmdb.org/t/p/w500/$imageUrl')),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            clipBehavior: Clip.none,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10.0), bottomRight: Radius.circular(10.0)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [ Colors.transparent, Colors.black87.withOpacity(0.35), Colors.black87 ],
+              )
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: SizeConfig.blockSizeVertical * 3, horizontal: SizeConfig.blockSizeHorizontal * 2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: SizeConfig.blockSizeVertical * 1),
+                  Row(
+                    children: List.generate(5, (index) {
+                      IconData icon = Icons.star_outline_rounded; /// default to empty star
+                      /// If this movie has more stars than [index+1], show a full star
+                      if (stars > index+1) {
+                        icon = Icons.star_rounded;
+                        /// check if this movie can get half a star. Check if stars are more than [index] and that stars is greater by 0.5, show a half star
+                      } else if (stars > index && (stars - index) >= 0.5) {
+                        icon = Icons.star_half_rounded;
+                      }
+                      return Icon(icon,  size: SizeConfig.blockSizeVertical * 3);
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -5,15 +5,12 @@ import 'package:movieapp/utilities/size_config.dart';
 import 'package:movieapp/utilities/ui_constants.dart';
 
 import 'dart:convert';
-// ! REELDEAL - app name
 
-
-// TODO: set grid spacing
-// TODO: use sliver app bar. App bar should show app name and tag line
-// TODO: show bottom nav bar with two buttons. Movies with film icon, Tickets with ticket icon. Maybe also Profile with profile icon
+// TODO: add movie reel image at top of sliver app bar (in red)
 // TODO: create splash screen. Show splash screen on app launch
-// TODO: set app theme colors in ThemeData
-// TODO: use correct fonts
+// TODO: ensure app scales correctly on all devices
+// TODO: clean up code
+// TODO: comment code
 
 class Movie {
   Movie({ this.title, this.voteAverage, this.imageUrl });
@@ -116,52 +113,87 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     SizeConfig().init(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Popular Movies'),
-      ),
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            return GridView.builder(
-              padding: EdgeInsets.all(10),
-              itemCount: _movies.length,
+            return CustomScrollView(
               controller: _controller,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                childAspectRatio: 1/1.5,
-                // TODO: can change the amount of grids per row based on device. On tablet we can fit many more tiles in
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 18,
-              ),
-              itemBuilder: (context, index) {
-                return MoviePoster(
-                  _movies[index].title,
-                  _movies[index].voteAverage,
-                  _movies[index].imageUrl,
-                );
-              }
+              slivers: [
+                SliverAppBar(
+                  backgroundColor: Color(kBackgroundColour),
+                  toolbarHeight: 200,
+                  title: Container(
+                    child: Column(
+                      children: [
+                        Text(
+                          'REEL DEALS',
+                          style: TextStyle(
+                            fontFamily: 'CFParis',
+                            color: Color(kAccentColour),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 4,
+                            fontSize: 80,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'Find the best movie deals for you',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 1/1.5,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 14,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (BuildContext context, int index) {
+                      return MoviePoster(
+                        _movies[index].title,
+                        _movies[index].voteAverage,
+                        _movies[index].imageUrl,
+                      );
+                    },
+                    childCount: _movies.length,
+                  ),
+                ),
+              ],
             );
           }
-          return Center(child: CircularProgressIndicator()); 
+          return Center(child: CircularProgressIndicator());
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 1,
         items: [
+          BottomNavigationBarItem(
+            label: 'Watchlist',
+            icon: Icon(Icons.bookmark),
+          ),
           BottomNavigationBarItem(
             label: 'Movies',
             icon: Icon(Icons.theaters),
           ),
           BottomNavigationBarItem(
-            label: 'Profile',
-            icon: Icon(Icons.person_rounded),
+            label: 'Search',
+            icon: Icon(Icons.search),
           ),
         ],
       ),
     );
   }
 }
-
 
 class MoviePoster extends StatelessWidget {
   MoviePoster(this.title, this.vote, this.imageUrl);
